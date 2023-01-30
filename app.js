@@ -27,7 +27,7 @@ var corsOptions = {
 };
 
 app.listen(port, function (err) {
-	console.log("running server on port " + port);
+	console.log("running server on port " + (process.env.PORT || port));
 });
 
 app.get('/', cors(corsOptions), function (req, res) {
@@ -111,14 +111,14 @@ app.get('/nearest', cors(corsOptions), function (req, res, next) {
 
 /**
  *
- * Ping for new data every 15 mins
+ * Ping for new data every 60 mins
  *
  */
 setInterval(function () {
 
 	run(moment.utc());
 
-}, 900000);
+}, 3600000);
 
 /**
  *
