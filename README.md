@@ -25,8 +25,9 @@ npm start
 git clone https://github.com/adrianschubek/wind-js-server.git
 cd wind-js-server
 docker build -t wind .
-docker run -it -e PORT=6712 wind
+docker run -it -p 6712:7000 wind
 ```
+http://localhost:6712
 
 ## endpoints
 - **/latest** returns the most up to date JSON data available

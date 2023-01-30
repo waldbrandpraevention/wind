@@ -1,5 +1,7 @@
 FROM node:alpine
 
+RUN apk add openjdk11-jre
+
 WORKDIR /api
 
 COPY . .
