@@ -20,6 +20,11 @@ To get to production; you should improve upon this or build your own.
 npm install
 npm start
 ```
+Docker
+```
+docker build -t wind .
+docker run -it -e PORT=6712 wind
+```
 
 ## endpoints
 - **/latest** returns the most up to date JSON data available
