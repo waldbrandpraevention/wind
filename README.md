@@ -20,8 +20,10 @@ To get to production; you should improve upon this or build your own.
 npm install
 npm start
 ```
-Docker
+### Deploy
 ```
+git clone https://github.com/adrianschubek/wind-js-server.git
+cd wind-js-server
 docker build -t wind .
 docker run -it -e PORT=6712 wind
 ```
