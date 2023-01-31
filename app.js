@@ -13,6 +13,7 @@ var baseDir = 'http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_1p00.pl';
 // cors config
 var whitelist = [
   'http://localhost:3000',
+  'http://localhost:8080',
   'https://kiwa.tech',
   'https://dev.kiwa.tech',
   'https://bp.adriansoftware.de',
