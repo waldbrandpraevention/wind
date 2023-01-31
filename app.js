@@ -111,14 +111,14 @@ app.get('/nearest', cors(corsOptions), function (req, res, next) {
 
 /**
  *
- * Ping for new data every 60 mins
+ * Ping for new data every 15 mins
  *
  */
 setInterval(function () {
 
 	run(moment.utc());
 
-}, 3600000);
+}, 900000);
 
 /**
  *
