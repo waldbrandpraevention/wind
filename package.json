@@ -1,7 +1,7 @@
 {
   "name": "wind-js-server",
-  "version": "0.0.3",
-  "description": "Demo rest service to expose Grib2 wind forecast data as JSON",
+  "version": "1.0.0",
+  "description": "REST API to expose Grib2 wind forecast data as JSON",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
@@ -12,8 +12,8 @@
     "node",
     "grib2"
   ],
-  "author": "danwild@y7mail.com",
-  "license": "ISC",
+  "author": "wind-js-server@adrianschubek.de",
+  "license": "MIT",
   "dependencies": {
     "cors": "^2.7.1",
     "express": "^4.13.4",

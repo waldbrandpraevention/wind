@@ -28,7 +28,7 @@ var corsOptions = {
 };
 
 app.listen(port, function (err) {
-  console.log("running server on port " + (process.env.PORT || port));
+  console.log("running server on port " + port);
 });
 
 app.get('/', cors(corsOptions), function (req, res) {
