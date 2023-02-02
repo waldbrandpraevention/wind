@@ -1,272 +1,263 @@
-var express = require("express");
-var moment = require("moment");
-var http = require('http');
-var request = require('request');
-var fs = require('fs');
-var Q = require('q');
-var cors = require('cors');
+const express = require("express");
+const compression = require("compression");
+const moment = require("moment");
+const fetch = require("node-fetch");
+const fs = require("fs");
+const cors = require("cors");
+const { exec } = require("child_process");
 
-var app = express();
-var port = process.env.PORT || 7000;
-var baseDir = 'http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_1p00.pl';
+const app = express();
+const grib2json = process.env.GRIB2JSON || "./converter/bin/grib2json";
+const port = process.env.PORT || 7000;
+const resolution = process.env.RESOLUTION || "0.5";
+const baseDir = `https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_${resolution === "1" ? "1p00" : "0p50"}.pl`;
+const wind = process.env.WIND || true;
+const temp = process.env.TEMP || false;
+
+// GFS model update cycle
+const GFS_CYCLE_H = 6;
+
+// GFS model forecast timestep
+const GFS_FORECAST_H = 3;
+
+// Number of days to download historic GFS data (last 14 days available in theory)
+const GFS_CYCLE_MAX_D = process.env.MAX_HISTORY_DAYS || 1;
+
+// Number of forecast hours to download for each model cycle
+const GFS_FORECAST_MAX_H = process.env.MAX_FORECAST_HOURS || 18;
+
 
 // cors config
-var whitelist = [
-  'http://localhost:3000',
-  'http://localhost:8080',
-  'https://kiwa.tech',
-  'https://dev.kiwa.tech',
-  'https://bp.adriansoftware.de',
-  'https://app.bp.adriansoftware.de',
+const whitelist = [
+  "http://localhost:8080",
+  "http://localhost:3000",
+  "http://localhost:4000",
+  "https://kiwa.tech",
+  "https://dev.kiwa.tech",
+  "https://bp.adriansoftware.de",
+  "https://app.bp.adriansoftware.de",
 ];
 
-var corsOptions = {
-  origin: function (origin, callback) {
-    var originIsWhitelisted = whitelist.indexOf(origin) !== -1;
+const corsOptions = {
+  origin(origin, callback) {
+    const originIsWhitelisted = whitelist.indexOf(origin) !== -1;
     callback(null, originIsWhitelisted);
-  }
+  },
 };
 
-app.listen(port, function (err) {
-  console.log("running server on port " + port);
+app.use(compression());
+app.listen(port, () => {
+  console.log(`Running wind server for data resolution of ${resolution === "1" ? "1" : "0.5"} degree on port ${port}`);
 });
 
-app.get('/', cors(corsOptions), function (req, res) {
-  res.send('hello wind-js-server.. go to /latest for wind data..');
+app.get("/", cors(corsOptions), (req, res) => {
+  res.send("Wind server : go to /latest for last wind data.");
 });
 
-app.get('/alive', cors(corsOptions), function (req, res) {
-  res.send('wind-js-server is alive');
+app.get("/alive", cors(corsOptions), (req, res) => {
+  res.send("Wind server is alive");
 });
 
-app.get('/latest', cors(corsOptions), function (req, res) {
+/**
+ * Find and return the nearest available GFS forecast for the current timestamp.
+ * Considers the 6 hour model update cycle and the 3 hour forecast steps.
+ *
+ * @param targetMoment {Object} UTC moment
+ */
+function findNearest(targetMoment, limitHours = GFS_FORECAST_MAX_H, searchBackwards = true) {
+  console.log(`FindNearest: Target ${targetMoment.format("YYYYMMDD-HH")}`);
+  const nearestGFSCycle = moment(targetMoment).hour(roundHours(moment(targetMoment).hour(), GFS_CYCLE_H));
+  let forecastOffset = 0;
 
-  /**
-   * Find and return the latest available 6 hourly pre-parsed JSON data
-   *
-   * @param targetMoment {Object} UTC moment
-   */
-  function sendLatest(targetMoment) {
-
-    var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
-    var fileName = __dirname + "/json-data/" + stamp + ".json";
-
-    res.setHeader('Content-Type', 'application/json');
-    res.sendFile(fileName, {}, function (err) {
-      if (err) {
-        console.log(stamp + ' doesnt exist yet, trying previous interval..');
-        sendLatest(moment(targetMoment).subtract(6, 'hours'));
-      }
-    });
+  if (nearestGFSCycle.diff(moment().utc(), "hours") > limitHours) {
+    console.log("FindNearest: Requested timestamp too far in the future");
+    return false;
   }
 
-  sendLatest(moment().utc());
+  do {
+    forecastOffset = targetMoment.diff(nearestGFSCycle, "hours");
+    const forecastOffsetRounded = roundHours(forecastOffset, GFS_FORECAST_H);
+    const stamp = getStampFromMoment(nearestGFSCycle, forecastOffsetRounded);
 
-});
-
-app.get('/nearest', cors(corsOptions), function (req, res, next) {
-
-  var time = req.query.timeIso;
-  var limit = req.query.searchLimit;
-  var searchForwards = false;
-
-  /**
-   * Find and return the nearest available 6 hourly pre-parsed JSON data
-   * If limit provided, searches backwards to limit, then forwards to limit before failing.
-   *
-   * @param targetMoment {Object} UTC moment
-   */
-  function sendNearestTo(targetMoment) {
-
-    if (limit && Math.abs(moment.utc(time).diff(targetMoment, 'days')) >= limit) {
-      if (!searchForwards) {
-        searchForwards = true;
-        sendNearestTo(moment(targetMoment).add(limit, 'days'));
-        return;
-      }
-      else {
-        return next(new Error('No data within searchLimit'));
-      }
+    console.log(`FindNearest: Checking for ${stamp.filename}`);
+    const file = `${__dirname}/json-data/${stamp.filename}.json`;
+    if (checkPath(file, false)) {
+      return file;
     }
 
-    var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
-    var fileName = __dirname + "/json-data/" + stamp + ".json";
+    if (searchBackwards) {
+      nearestGFSCycle.subtract(GFS_CYCLE_H, "hours");
+    } else {
+      nearestGFSCycle.add(GFS_CYCLE_H, "hours");
+    }
+  } while (forecastOffset < limitHours);
 
-    res.setHeader('Content-Type', 'application/json');
-    res.sendFile(fileName, {}, function (err) {
-      if (err) {
-        var nextTarget = searchForwards ? moment(targetMoment).add(6, 'hours') : moment(targetMoment).subtract(6, 'hours');
-        sendNearestTo(nextTarget);
-      }
-    });
+  return false;
+}
+
+app.get("/latest", cors(corsOptions), (req, res, next) => {
+  const targetMoment = moment().utc();
+  const filename = findNearest(targetMoment);
+  if (!filename) {
+    next(new Error("No current data available"));
+    return;
   }
-
-  if (time && moment(time).isValid()) {
-    sendNearestTo(moment.utc(time));
-  }
-  else {
-    return next(new Error('Invalid params, expecting: timeIso=ISO_TIME_STRING'));
-  }
-
-});
-
-/**
- *
- * Ping for new data every 15 mins
- *
- */
-setInterval(function () {
-
-  run(moment.utc());
-
-}, 900000);
-
-/**
- *
- * @param targetMoment {Object} moment to check for new data
- */
-function run(targetMoment) {
-
-  getGribData(targetMoment).then(function (response) {
-    if (response.stamp) {
-      convertGribToJson(response.stamp, response.targetMoment);
+  res.setHeader("Content-Type", "application/json");
+  res.sendFile(filename, {}, (err) => {
+    if (err) {
+      console.log(`Error sending ${filename}: ${err}`);
     }
   });
-}
+});
 
-/**
- *
- * Finds and returns the latest 6 hourly GRIB2 data from NOAAA
- *
- * @returns {*|promise}
- */
-function getGribData(targetMoment) {
+app.get("/nearest", cors(corsOptions), (req, res, next) => {
+  const { time } = req.query;
+  const limit = req.query.limit || GFS_FORECAST_MAX_H;
 
-  var deferred = Q.defer();
-
-  function runQuery(targetMoment) {
-
-    // only go 2 weeks deep
-    if (moment.utc().diff(targetMoment, 'days') > 30) {
-      console.log('hit limit, harvest complete or there is a big gap in data..');
-      return;
-    }
-
-    // var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
-    var stamp = moment(targetMoment).format('YYYYMMDD') + roundHours(moment(targetMoment).hour(), 6);
-    var urlstamp = stamp.slice(0, 8) + '/' + stamp.slice(8, 10) + '/atmos';
-    request.get({
-      url: baseDir,
-      qs: {
-        file: 'gfs.t' + roundHours(moment(targetMoment).hour(), 6) + 'z.pgrb2.1p00.f000',
-        lev_10_m_above_ground: 'on',
-        lev_surface: 'on',
-        var_TMP: 'on',
-        var_UGRD: 'on',
-        var_VGRD: 'on',
-        leftlon: 0,
-        rightlon: 360,
-        toplat: 90,
-        bottomlat: -90,
-        // dir: '/gfs.' + stamp
-        dir: '/gfs.' + urlstamp
-      }
-
-    }).on('error', function (err) {
-      // console.log(err);
-      runQuery(moment(targetMoment).subtract(6, 'hours'));
-
-    }).on('response', function (response) {
-
-      console.log('response ' + response.statusCode + ' | ' + stamp);
-
-      if (response.statusCode != 200) {
-        runQuery(moment(targetMoment).subtract(6, 'hours'));
-      }
-
-      else {
-        // don't rewrite stamps
-        if (!checkPath('json-data/' + stamp + '.json', false)) {
-
-          console.log('piping ' + stamp);
-
-          // mk sure we've got somewhere to put output
-          checkPath('grib-data', true);
-
-          // pipe the file, resolve the valid time stamp
-          var file = fs.createWriteStream("grib-data/" + stamp + ".f000");
-          response.pipe(file);
-          file.on('finish', function () {
-            file.close();
-            deferred.resolve({ stamp: stamp, targetMoment: targetMoment });
-          });
-
-        }
-        else {
-          console.log('already have ' + stamp + ', not looking further');
-          deferred.resolve({ stamp: false, targetMoment: false });
-        }
-      }
-    });
-
+  if (!time || !moment(time).isValid()) {
+    next(new Error("Invalid time, expecting ISO 8601 date"));
+    return;
   }
 
-  runQuery(targetMoment);
-  return deferred.promise;
+  const targetMoment = moment.utc(time);
+  const filename = findNearest(targetMoment, limit);
+  if (!filename) {
+    next(new Error("No current data available"));
+    return;
+  }
+  res.setHeader("Content-Type", "application/json");
+  res.sendFile(filename, {}, (err) => {
+    if (err) {
+      console.log(`Error sending ${filename}: ${err}`);
+    }
+  });
+});
+
+function nextFile(targetMoment, offset, success) {
+  const previousTargetMoment = moment(targetMoment).subtract(GFS_CYCLE_H, "hours");
+
+  if (moment.utc().diff(previousTargetMoment, "days") > GFS_CYCLE_MAX_D) {
+    console.log("Harvest complete or there is a big gap in data");
+    return;
+  }
+  if (!success || offset > GFS_FORECAST_MAX_H) {
+    // Download previous targetMoment
+    getGribData(previousTargetMoment, 0);
+  } else {
+    // Download forecast of current targetMoment
+    getGribData(targetMoment, offset + GFS_FORECAST_H);
+  }
 }
 
-function convertGribToJson(stamp, targetMoment) {
+function getStampFromMoment(targetMoment, offset) {
+  const stamp = {};
+  stamp.date = moment(targetMoment).format("YYYYMMDD");
+  stamp.hour = roundHours(moment(targetMoment).hour(), GFS_CYCLE_H).toString().padStart(2, "0");
+  stamp.forecast = offset.toString().padStart(GFS_FORECAST_H, "0");
+  stamp.filename = `${moment(targetMoment).format("YYYY-MM-DD")}T${stamp.hour}.f${stamp.forecast}`;
+  return stamp;
+}
 
-  // mk sure we've got somewhere to put output
-  checkPath('json-data', true);
+/**
+ *
+ * Finds and downloads the latest 6 hourly GRIB2 data from NOAA
+ *
+ */
+function getGribData(targetMoment, offset) {
+  const stamp = getStampFromMoment(targetMoment, offset);
 
-  var exec = require('child_process').exec, child;
+  if (checkPath(`json-data/${stamp.filename}.json`, false)) {
+    console.log(`Already got ${stamp.filename}, stopping harvest`);
+    return;
+  }
 
-  child = exec('converter/bin/grib2json --data --output json-data/' + stamp + '.json --names --compact grib-data/' + stamp + '.f000',
+  const url = new URL(`${baseDir}`);
+  const filesuffix = resolution === "1" ? `z.pgrb2.1p00.f${stamp.forecast}` : `z.pgrb2full.0p50.f${stamp.forecast}`;
+  const file = `gfs.t${stamp.hour}${filesuffix}`;
+  const params = {
+    file,
+    ...temp && {
+      lev_surface: "on",
+      var_TMP: "on",
+    },
+    ...wind && {
+      lev_10_m_above_ground: "on",
+      var_UGRD: "on",
+      var_VGRD: "on",
+    },
+    leftlon: 0,
+    rightlon: 360,
+    toplat: 90,
+    bottomlat: -90,
+    dir: `/gfs.${stamp.date}/${stamp.hour}/atmos`,
+  };
+  Object.entries(params).forEach(([key, val]) => url.searchParams.append(key, val));
+
+  fetch(url)
+    .then((response) => {
+      console.log(`RESP ${response.status} ${stamp.filename}`);
+
+      if (response.status !== 200) {
+        nextFile(targetMoment, offset, false);
+        return;
+      }
+
+      if (!checkPath(`json-data/${stamp.filename}.json`, false)) {
+        console.log("Write output");
+
+        // Make sure output directory exists
+        checkPath("grib-data", true);
+
+        const f = fs.createWriteStream(`grib-data/${stamp.filename}`);
+        response.body.pipe(f);
+        f.on("finish", () => {
+          f.close();
+          convertGribToJson(stamp.filename, targetMoment, offset);
+        });
+      } else {
+        console.log(`Already have ${stamp.filename}, not looking further`);
+      }
+    })
+    .catch((err) => {
+      console.log("ERR", stamp.filename, err);
+      nextFile(targetMoment, offset, false);
+    });
+}
+
+function convertGribToJson(filename, targetMoment, offset) {
+  // Make sure output directory exists
+  checkPath("json-data", true);
+
+  exec(`${grib2json} --data --output json-data/${filename}.json --names --compact grib-data/${filename}`,
     { maxBuffer: 500 * 1024 },
-    function (error, stdout, stderr) {
-
+    (error) => {
       if (error) {
-        console.log('exec error: ' + error);
+        console.log(`Exec error: ${error}`);
+        return;
       }
+      console.log("Converted");
 
-      else {
-        console.log("converted..");
+      // Delete raw grib data
+      exec("rm grib-data/*");
 
-        // don't keep raw grib data
-        exec('rm grib-data/*');
-
-        // if we don't have older stamp, try and harvest one
-        var prevMoment = moment(targetMoment).subtract(6, 'hours');
-        var prevStamp = prevMoment.format('YYYYMMDD') + roundHours(prevMoment.hour(), 6);
-
-        if (!checkPath('json-data/' + prevStamp + '.json', false)) {
-
-          console.log("attempting to harvest older data " + stamp);
-          run(prevMoment);
-        }
-
-        else {
-          console.log('got older, no need to harvest further');
-        }
-      }
+      nextFile(targetMoment, offset, true);
     });
 }
 
 /**
  *
- * Round hours to expected interval, e.g. we're currently using 6 hourly interval
- * i.e. 00 || 06 || 12 || 18
+ * Round hours to expected interval
  *
  * @param hours
  * @param interval
- * @returns {String}
+ * @param floor
+ * @returns {number}
  */
-function roundHours(hours, interval) {
-  if (interval > 0) {
-    var result = (Math.floor(hours / interval) * interval);
-    return result < 10 ? '0' + result.toString() : result;
+function roundHours(hours, interval, floor = true) {
+  if (floor) {
+    return Math.floor(hours / interval) * interval;
   }
+  return Math.round(hours / interval) * interval;
 }
 
 /**
@@ -280,7 +271,6 @@ function checkPath(path, mkdir) {
   try {
     fs.statSync(path);
     return true;
-
   } catch (e) {
     if (mkdir) {
       fs.mkdirSync(path);
@@ -289,5 +279,18 @@ function checkPath(path, mkdir) {
   }
 }
 
-// init harvest
+/**
+ *
+ * @param targetMoment {Object} moment to check for new data
+ */
+function run(targetMoment) {
+  getGribData(targetMoment, 0);
+}
+
+// Check for new data every 15 mins
+setInterval(() => {
+  run(moment.utc());
+}, 900000);
+
+// Init harvest
 run(moment.utc());
