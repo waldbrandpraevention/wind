@@ -24,7 +24,7 @@ docker run -it -p 7000:7000 wind
 |------------|-----------------------------------------|---------|-------------|
 | PORT       | Der interne Port des Servers (nur falls ohne Docker)     | `7000`    | `number` |
 | RESOLUTION | GFS Daten Auflösung           | `0.5`     | `0.25`,`0.5`, `1`      |
-| MAX_HISTORY_DAYS | Maximale Anzahl an vergangenen Tagen herunterladen | `1` | `1` bis `14` |
+| MAX_HISTORY_DAYS | Maximale Anzahl an vergangenen Tagen herunterladen | `1` | `0` bis `14` |
 | MAX_FORECAST_HOURS | Maximale Anzahl an Stunden Vorhersage herunterladen | `18` | `number` |
 | WIND       | Wind Daten herunterladen        | `true`    | `true`, `false` |
 | TEMP       | Temperatur Daten herunterladen | `false`   | `true`, `false` |
