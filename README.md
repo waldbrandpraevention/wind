@@ -3,6 +3,8 @@
     <img width="320" height="160" src="https://bp.adriansoftware.de/media/logo-v1.svg?ref=gh-back"> <!-- Todo make file local -->
 </p>
 
+![](https://bp.adriansoftware.de/media/wind-demo1.gif)
+
 > Dieser Fork basiert auf [danwild/wind-js-server](https://github.com/danwild/wind-js-server) und [Flowm/wind-server](https://github.com/Flowm/wind-server).
 
 API um stets die aktuellen Winddaten für die Windkarte zu laden. Diese werden vom amerikanischen Wetterdienst ([NOAA](http://nomads.ncep.noaa.gov/)) bereitgestellt und vom [GRIB2](http://en.wikipedia.org/wiki/GRIB)-Format zu JSON konvertiert und können direkt in der KIWA Windkarte angezeigt werden.
