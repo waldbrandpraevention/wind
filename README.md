@@ -5,7 +5,7 @@
 
 <div align="center">
 	
-![wind-demo1](https://user-images.githubusercontent.com/19362349/216484496-643eda26-8c54-415d-8f56-6decfc1e5b9f.gif)
+![wind2](https://user-images.githubusercontent.com/19362349/216494936-dc03e436-c7d5-4ff2-8c26-baa18f1eb8d6.gif)
 	
 </div>
 
