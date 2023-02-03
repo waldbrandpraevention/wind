@@ -3,7 +3,11 @@
     <img width="320" height="160" src="https://bp.adriansoftware.de/media/logo-v1.svg?ref=gh-back"> <!-- Todo make file local -->
 </p>
 
-![](https://bp.adriansoftware.de/media/wind-demo1.gif)
+<div align="center">
+	
+![wind-demo1](https://user-images.githubusercontent.com/19362349/216484496-643eda26-8c54-415d-8f56-6decfc1e5b9f.gif)
+	
+</div>
 
 > Dieser Fork basiert auf [danwild/wind-js-server](https://github.com/danwild/wind-js-server) und [Flowm/wind-server](https://github.com/Flowm/wind-server).
 
