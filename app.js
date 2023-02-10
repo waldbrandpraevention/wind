@@ -32,35 +32,15 @@ const AUTO_CLEANUP = process.env.AUTO_CLEANUP || true;
 // Cleanup file if older than X days (only if AUTO_CLEANUP is true)
 const AUTO_CLEANUP_THRESHOLD = process.env.AUTO_CLEANUP_THRESHOLD || 1;
 
-// cors config
-const whitelist = [
-  "http://localhost:8080",
-  "http://localhost:3000",
-  "http://localhost:4000",
-  "https://kiwa.tech",
-  "https://dev.kiwa.tech",
-  "https://bp.adriansoftware.de",
-  "https://app.bp.adriansoftware.de",
-];
-
-const corsOptions = {
-  origin(origin, callback) {
-    const originIsWhitelisted = whitelist.indexOf(origin) !== -1;
-    callback(null, originIsWhitelisted);
-  },
-};
-
+app.use(cors());
 app.use(compression());
+
 app.listen(port, () => {
   console.log(`Running wind server for data resolution of ${resolution === "1" ? "1" : "0.5"} degree on port ${port}`);
 });
 
-app.get("/", cors(corsOptions), (req, res) => {
-  res.send("Wind server : go to /latest for last wind data.");
-});
-
-app.get("/alive", cors(corsOptions), (req, res) => {
-  res.send("Wind server is alive");
+app.get("/", (req, res) => {
+  res.send(`<a href="https://github.com/adrianschubek/wind-js-server">wind-js-server</a>: go to <a href="/latest">/latest</a> for latest wind data.`);
 });
 
 /**
@@ -100,7 +80,7 @@ function findNearest(targetMoment, limitHours = GFS_FORECAST_MAX_H, searchBackwa
   return false;
 }
 
-app.get("/latest", cors(corsOptions), (req, res, next) => {
+app.get("/latest", (req, res, next) => {
   const targetMoment = moment().utc();
   const filename = findNearest(targetMoment);
   if (!filename) {
@@ -115,7 +95,7 @@ app.get("/latest", cors(corsOptions), (req, res, next) => {
   });
 });
 
-app.get("/nearest", cors(corsOptions), (req, res, next) => {
+app.get("/nearest", (req, res, next) => {
   const { time } = req.query;
   const limit = req.query.limit || GFS_FORECAST_MAX_H;
 

@@ -51,7 +51,6 @@ docker run -it -p 7000:7000 wind
 	- Parameter:
 		- `timeIso` ISO Zeitstempel
 		- `searchLimit` Anzahl Tage um den Zeitstempel herum
-- **/alive** health check
 
 ## Development
 ```bash
