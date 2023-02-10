@@ -26,6 +26,11 @@ const GFS_CYCLE_MAX_D = process.env.MAX_HISTORY_DAYS || 1;
 // Number of forecast hours to download for each model cycle
 const GFS_FORECAST_MAX_H = process.env.MAX_FORECAST_HOURS || 18;
 
+// Auto cleanup old files to reduce folder size
+const AUTO_CLEANUP = process.env.AUTO_CLEANUP || true;
+
+// Cleanup file if older than X days (only if AUTO_CLEANUP is true)
+const AUTO_CLEANUP_THRESHOLD = process.env.AUTO_CLEANUP_THRESHOLD || 1;
 
 // cors config
 const whitelist = [
@@ -287,9 +292,24 @@ function run(targetMoment) {
   getGribData(targetMoment, 0);
 }
 
+/**
+ * Cleanup old data
+ */
+function cleanup() {
+  console.log("Cleanup old data");
+  const files = fs.readdirSync("json-data");
+  files.forEach((file) => {
+    // delete if data is too old
+    const age = moment().diff(moment(file.split(".")[0]), "days");
+    if (age < AUTO_CLEANUP_THRESHOLD) return;
+    fs.unlinkSync(`./json-data/${file}`);
+  });
+}
+
 // Check for new data every 15 mins
 setInterval(() => {
   run(moment.utc());
+  if (AUTO_CLEANUP) cleanup();
 }, 900000);
 
 // Init harvest
