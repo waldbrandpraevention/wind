@@ -4,6 +4,9 @@
 </p>
 
 <div align="center">
+
+[![](https://img.shields.io/docker/image-size/waldbrandpraevention/wind?style=for-the-badge&label=image&color=orange)](https://hub.docker.com/r/waldbrandpraevention/wind/tags)
+
 	
 ![wind2](https://user-images.githubusercontent.com/19362349/216494936-dc03e436-c7d5-4ff2-8c26-baa18f1eb8d6.gif)
 	
@@ -19,6 +22,11 @@ https://wind.bp.adriansoftware.de/latest
 
 
 ## Deployment
+[Docker Image](https://hub.docker.com/r/waldbrandpraevention/wind/tags)
+```
+docker run -p 7000:7000 waldbrandpraevention/wind
+```
+oder Image manuell bauen
 ```
 git clone https://github.com/adrianschubek/wind-js-server.git
 cd wind-js-server
@@ -34,6 +42,8 @@ docker run -it -p 7000:7000 wind
 | MAX_FORECAST_HOURS | Maximale Anzahl an Stunden Vorhersage herunterladen | `18` | `number` |
 | WIND       | Wind Daten herunterladen        | `true`    | `true`, `false` |
 | TEMP       | Temperatur Daten herunterladen | `false`   | `true`, `false` |
+
+
 
 ## API
 - **/latest** aktuellste Winddaten
