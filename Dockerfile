@@ -1,6 +1,6 @@
 FROM node:alpine
 
-RUN apk add openjdk11-jre
+RUN apk add --no-cache openjdk11-jre
 
 WORKDIR /api
 
