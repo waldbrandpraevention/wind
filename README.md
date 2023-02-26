@@ -18,7 +18,7 @@ API um stets die aktuellen Winddaten für die Windkarte zu laden. Diese werden v
 Wettermodell GFS wird alle 6h aktualisiert. Vorhersagen alle 3h.
 ## Demo
 
-https://wind.bp.adriansoftware.de/latest
+https://kiwa.tech/api/wind/latest
 
 
 ## Deployment
