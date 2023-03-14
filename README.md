@@ -5,7 +5,7 @@
 
 <div align="center">
 
-[![](https://img.shields.io/docker/image-size/waldbrandpraevention/wind?style=for-the-badge&label=image&color=orange)](https://hub.docker.com/r/waldbrandpraevention/wind/tags)
+[![](https://img.shields.io/docker/image-size/waldbrand/wind?style=for-the-badge&label=image&color=orange)](https://hub.docker.com/r/waldbrandpraevention/wind/tags)
 
 	
 ![wind2](https://user-images.githubusercontent.com/19362349/216494936-dc03e436-c7d5-4ff2-8c26-baa18f1eb8d6.gif)
@@ -24,7 +24,7 @@ https://kiwa.tech/api/wind/latest
 ## Deployment
 [Docker Image](https://hub.docker.com/r/waldbrandpraevention/wind/tags)
 ```
-docker run -p 7000:7000 waldbrandpraevention/wind
+docker run -p 7000:7000 waldbrand/wind
 ```
 oder Image manuell bauen
 ```
