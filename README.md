@@ -1,6 +1,6 @@
 <h1 align="center">wind-js-server für KIWA</h1>
 <p align="center">   
-    <img width="320" height="160" src="https://bp.adriansoftware.de/media/logo-v1.svg?ref=gh-back"> <!-- Todo make file local -->
+    <img width="320" height="160" src="https://bp.adriansoftware.de/media/logo-v1.svg"> <!-- Todo make file local -->
 </p>
 
 <div align="center">
